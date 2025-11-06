@@ -1,0 +1,16 @@
+{
+  "start": [
+    {"say": "爱宕", "text": "早安，指挥官。"},
+    {"choice": [
+      {"text": "回应", "goto": "friendly"},
+      {"text": "装作没听见", "goto": "ignore"}
+    ]}
+  ],
+  "friendly": [
+    {"say": "玩家", "text": "早安，爱宕。"},
+    {"say": "爱宕", "text": "真贴心呢~"}
+  ],
+  "ignore": [
+    {"say": "爱宕", "text": "哼。"}
+  ]
+}
