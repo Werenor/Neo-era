@@ -1,0 +1,25 @@
+{
+  "font_paths": {
+    "noto": {
+      "regular_path": "E:\\Neo-era\\assets\\fonts\\NotoSansSC-Regular.ttf",
+      "bold_path": "E:\\Neo-era\\assets\\fonts\\NotoSansSC-Bold.ttf"
+    }
+  },
+  "defaults": {
+    "font": {
+      "name": "noto",
+      "size": 24
+    }
+  },
+  "UIButton": {
+    "font": {
+      "name": "noto",
+      "size": 22
+    }
+  },
+  "colours": {
+    "normal_text": "#00FF00",
+    "dark_bg": "#000000",
+    "normal_bg": "#111111"
+  }
+}
