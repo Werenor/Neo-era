@@ -1,4 +1,7 @@
 from neoera import renderer_gui as renderer
+from neoera.runtime import Context
+ctx = Context()
+ctx.set("player_name", "指挥官")
 
 if __name__ == "__main__":
     renderer.load_background("assets/bg/test_bg.jpg")
