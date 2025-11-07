@@ -53,7 +53,7 @@ ctx: Context = Context({
 
 def init_engine(use_gui: bool = True) -> None:
     """
-    初始化 Neo-era 引擎。
+    初始化 Neo-era 引擎
     参数:
       use_gui - 是否启用 pygame_gui 渲染器（默认为 True）
     """
@@ -73,3 +73,4 @@ def init_engine(use_gui: bool = True) -> None:
     renderer.echo(f"[Neo-era] 引擎初始化完成。模式：{mode}")
     renderer.echo(f"[Neo-era] 当前玩家：{ctx.get('player_name')}")
     print(f"[Neo-era] 引擎初始化完成（{mode} 模式）")
+
