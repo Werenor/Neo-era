@@ -1,10 +1,5 @@
-"""
-Neo-era 剧本语言层（lang.py）
-----------------------------
-适配 pygame_gui 渲染器。
-"""
+# /neoera/lang.py
 
-from __future__ import annotations
 from typing import Callable, List, Optional
 from neoera import renderer_gui as renderer
 from neoera.core import ctx

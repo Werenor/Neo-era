@@ -1,8 +1,4 @@
-"""
-Neo-era 渲染器：pygame
---------------------------------
-绕开 pygame_gui 的字体系统，直接用 pygame.font 渲染中文。
-"""
+# /neoera/renderer_gui.py
 
 import os
 import sys

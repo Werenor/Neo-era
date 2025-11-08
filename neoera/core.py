@@ -1,11 +1,4 @@
-"""
-Neo-era 核心模块（core.py）
---------------------------
-负责：
-  - 管理全局上下文 ctx
-  - 初始化引擎（加载语言与渲染器）
-  - 统一打印启动信息
-"""
+# /neoera/core.py
 
 from __future__ import annotations
 from typing import Any, Dict
@@ -73,4 +66,3 @@ def init_engine(use_gui: bool = True) -> None:
     renderer.echo(f"[Neo-era] 引擎初始化完成。模式：{mode}")
     renderer.echo(f"[Neo-era] 当前玩家：{ctx.get('player_name')}")
     print(f"[Neo-era] 引擎初始化完成（{mode} 模式）")
-
