@@ -1,18 +1,14 @@
 # /neoera/core.py
-
 from __future__ import annotations
 from typing import Any, Dict
-
 
 # ============================================================
 #  全局上下文（Context）
 # ============================================================
 
 class Context(dict):
-    """
-    游戏运行时上下文。
-    主要用于保存全局变量（如玩家名、好感度等）。
-    """
+    """游戏运行时上下文，用于保存全局变量（如玩家名、好感度等）"""
+
     def get_path(self, path: str, default=None) -> Any:
         """按 'a.b.c' 路径读取值"""
         node = self
@@ -31,6 +27,17 @@ class Context(dict):
             node = node.setdefault(key, {})
         node[parts[-1]] = value
 
+    # ----------------------------
+    # 普通键值操作（修正）
+    # ----------------------------
+    def set(self, key: str, value: Any):
+        """设置变量值"""
+        self[key] = value
+
+    def get(self, key: str, default=None):
+        """读取变量值"""
+        return super().get(key, default)
+
 
 # 全局上下文实例
 ctx: Context = Context({
@@ -45,22 +52,16 @@ ctx: Context = Context({
 # ============================================================
 
 def init_engine(use_gui: bool = True) -> None:
-    """
-    初始化 Neo-era 引擎
-    参数:
-      use_gui - 是否启用 pygame_gui 渲染器（默认为 True）
-    """
+    """初始化 Neo-era 引擎"""
     if use_gui:
         from neoera import renderer_gui as renderer
         mode = "GUI"
     else:
-        # 若未来想保留控制台版本，可切换
         from neoera import renderer_pygame as renderer
         mode = "CLI"
 
     from neoera import lang
 
-    # 导入语言层函数到全局
     globals().update({k: v for k, v in vars(lang).items() if not k.startswith("_")})
 
     renderer.echo(f"[Neo-era] 引擎初始化完成。模式：{mode}")

@@ -1,0 +1,19 @@
+测试开始
+set mood = "good"
+echo "当前心情：{mood}"
+
+if mood == "good"
+    爱宕：今天的心情真不错~
+else
+    爱宕：哼，别打扰我。
+end
+
+choice "去散步" "继续工作"
+
+if choice == 0
+    echo "你选择了：去散步"
+else
+    echo "你选择了：继续工作"
+end
+
+echo "测试结束"

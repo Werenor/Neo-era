@@ -1,73 +1,115 @@
 # /neoera/interpreter.py
+"""
+Neo-era Script Interpreter v2.2
+特性：
+- 完整支持 text / echo / set / if / else / choice
+- 自动修正字符串条件判断
+- 支持变量内插值 "你好，{player}"
+- 稳定兼容 parser v2 语法结构
+"""
+
+from neoera import renderer_gui as renderer
+import re
+
 
 class Interpreter:
     def __init__(self, ctx):
-        self.ctx = ctx  # 引擎的上下文（管理变量、标志位等）
-        self.functions = {}
+        self.ctx = ctx
 
+    # ============================================================
+    # 主执行入口
+    # ============================================================
     def execute(self, ast):
-        """ 执行抽象语法树（AST） """
         for statement in ast:
             self.execute_statement(statement)
 
+    # ============================================================
+    # 分派执行语句
+    # ============================================================
     def execute_statement(self, statement):
-        """ 执行单个语句 """
-        if statement['type'] == 'echo':
+        stype = statement.get("type")
+
+        if stype == "echo":
             self.execute_echo(statement)
-        elif statement['type'] == 'if':
+        elif stype == "text":
+            self.execute_text(statement)
+        elif stype == "choice":
+            self.execute_choice(statement)
+        elif stype == "set":
+            self.execute_set(statement)
+        elif stype == "if":
             self.execute_if(statement)
-        elif statement['type'] == 'for':
-            self.execute_for(statement)
-        elif statement['type'] == 'while':
-            self.execute_while(statement)
-        elif statement['type'] == 'func':
-            self.define_func(statement)
-        elif statement['type'] == 'return':
-            return self.execute_return(statement)
+        else:
+            print(f"[WARN] 未知语句类型: {stype}")
 
+    # ============================================================
+    # echo 显式输出
+    # ============================================================
     def execute_echo(self, statement):
-        """ 执行 echo 语句 """
-        expression = statement['expression']
-        if expression['type'] == 'variable':
-            print(self.ctx.get(expression['name'], '未知变量'))
-        elif expression['type'] == 'number':
-            print(expression['value'])
-        elif expression['type'] == 'string':
-            print(expression['value'])
+        expr = statement["expression"]
+        text = expr["value"] if isinstance(expr, dict) else str(expr)
+        text = self.interpolate(text)
+        renderer.queue_echo(text)
 
+    # ============================================================
+    # text 隐式输出
+    # ============================================================
+    def execute_text(self, statement):
+        text = statement.get("text", "")
+        text = self.interpolate(text)
+        renderer.queue_echo(text)
+
+    # ============================================================
+    # choice 选项
+    # ============================================================
+    def execute_choice(self, statement):
+        options = statement.get("options", [])
+        if not options:
+            return
+        renderer.queue_choice(options)
+        result = renderer.wait_for_choice()
+        self.ctx.set("choice", result)
+        renderer.queue_echo(f"[玩家选择] -> {options[result]}")
+
+    # ============================================================
+    # set 赋值
+    # ============================================================
+    def execute_set(self, statement):
+        name = statement.get("name")
+        expr = statement.get("expr")
+
+        try:
+            # 尝试计算表达式
+            value = eval(expr, {}, dict(self.ctx))
+        except Exception:
+            value = expr.strip('"')
+        self.ctx.set(name, value)
+
+    # ============================================================
+    # if 条件分支
+    # ============================================================
     def execute_if(self, statement):
-        """ 执行 if 语句 """
-        condition = statement['condition']
-        if self.evaluate_expression(condition):
-            self.execute(statement['statements'])
+        condition = statement.get("condition", "").strip()
+        result = False
 
-    def execute_for(self, statement):
-        """ 执行 for 循环 """
-        var_name = statement['var']
-        start = self.evaluate_expression(statement['start'])
-        end = self.evaluate_expression(statement['end'])
-        for i in range(start, end + 1):
-            self.ctx.set(var_name, i)
-            self.execute(statement['statements'])
+        # 直接以 ctx 为局部变量作用域进行 eval
+        try:
+            result = bool(eval(condition, {}, self.ctx))
+        except Exception as e:
+            print(f"[WARN] 条件表达式错误：{condition} ({e})")
+            result = False
 
-    def execute_while(self, statement):
-        """ 执行 while 循环 """
-        while self.evaluate_expression(statement['condition']):
-            self.execute(statement['statements'])
+        # 执行对应分支
+        if result:
+            self.execute(statement.get("then", []))
+        else:
+            self.execute(statement.get("else", []))
 
-    def define_func(self, statement):
-        """ 定义函数 """
-        self.functions[statement['name']] = statement
-
-    def execute_return(self, statement):
-        """ 执行 return 语句 """
-        return self.evaluate_expression(statement['expression'])
-
-    def evaluate_expression(self, expression):
-        """ 计算表达式的值 """
-        if expression['type'] == 'variable':
-            return self.ctx.get(expression['name'])
-        elif expression['type'] == 'number':
-            return expression['value']
-        elif expression['type'] == 'string':
-            return expression['value']
+    # ============================================================
+    # 内插变量，如 "你好，{player}"
+    # ============================================================
+    def interpolate(self, text: str) -> str:
+        def replace_var(match):
+            var_name = match.group(1)
+            return str(self.ctx.get(var_name, f"{{{var_name}}}"))
+        return re.sub(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", replace_var, text)
