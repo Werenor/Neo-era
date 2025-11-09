@@ -1,11 +1,10 @@
 # /neoera/interpreter.py
 """
-Neo-era Script Interpreter v2.2
-特性：
-- 完整支持 text / echo / set / if / else / choice
-- 自动修正字符串条件判断
-- 支持变量内插值 "你好，{player}"
-- 稳定兼容 parser v2 语法结构
+Neo-era Interpreter v3 — 多媒体扩展
+支持：
+- text / echo / set / if / else / choice
+- bg / bgm / stop_bgm
+- sprite_show / sprite_hide
 """
 
 from neoera import renderer_gui as renderer
@@ -16,19 +15,13 @@ class Interpreter:
     def __init__(self, ctx):
         self.ctx = ctx
 
-    # ============================================================
-    # 主执行入口
-    # ============================================================
     def execute(self, ast):
         for statement in ast:
+            print("[DEBUG]执行语句",statement)
             self.execute_statement(statement)
 
-    # ============================================================
-    # 分派执行语句
-    # ============================================================
     def execute_statement(self, statement):
         stype = statement.get("type")
-
         if stype == "echo":
             self.execute_echo(statement)
         elif stype == "text":
@@ -39,77 +32,59 @@ class Interpreter:
             self.execute_set(statement)
         elif stype == "if":
             self.execute_if(statement)
+        elif stype == "bg":
+            renderer.load_background(statement.get("path"))
+        elif stype == "bgm":
+            renderer.play_bgm(statement.get("path"))
+        elif stype == "stop_bgm":
+            renderer.stop_bgm()
+        elif stype == "sprite_show":
+            renderer.show_sprite(statement.get("path"), statement.get("pos"))
+        elif stype == "sprite_hide":
+            renderer.hide_sprite(statement.get("path"))
         else:
             print(f"[WARN] 未知语句类型: {stype}")
 
-    # ============================================================
-    # echo 显式输出
-    # ============================================================
+    # --------------------------------------------------
     def execute_echo(self, statement):
-        expr = statement["expression"]
-        text = expr["value"] if isinstance(expr, dict) else str(expr)
+        text = statement["expression"]["value"]
         text = self.interpolate(text)
         renderer.queue_echo(text)
 
-    # ============================================================
-    # text 隐式输出
-    # ============================================================
     def execute_text(self, statement):
-        text = statement.get("text", "")
-        text = self.interpolate(text)
+        text = self.interpolate(statement.get("text", ""))
         renderer.queue_echo(text)
 
-    # ============================================================
-    # choice 选项
-    # ============================================================
     def execute_choice(self, statement):
         options = statement.get("options", [])
-        if not options:
-            return
         renderer.queue_choice(options)
         result = renderer.wait_for_choice()
         self.ctx.set("choice", result)
-        renderer.queue_echo(f"[玩家选择] -> {options[result]}")
+        renderer.queue_echo(f"[选择] -> {options[result]}")
 
-    # ============================================================
-    # set 赋值
-    # ============================================================
     def execute_set(self, statement):
         name = statement.get("name")
         expr = statement.get("expr")
-
         try:
-            # 尝试计算表达式
             value = eval(expr, {}, dict(self.ctx))
         except Exception:
             value = expr.strip('"')
         self.ctx.set(name, value)
 
-    # ============================================================
-    # if 条件分支
-    # ============================================================
     def execute_if(self, statement):
-        condition = statement.get("condition", "").strip()
-        result = False
-
-        # 直接以 ctx 为局部变量作用域进行 eval
+        condition = statement.get("condition", "")
         try:
-            result = bool(eval(condition, {}, self.ctx))
-        except Exception as e:
-            print(f"[WARN] 条件表达式错误：{condition} ({e})")
+            result = bool(eval(condition, {}, dict(self.ctx)))
+        except Exception:
             result = False
-
-        # 执行对应分支
         if result:
             self.execute(statement.get("then", []))
         else:
             self.execute(statement.get("else", []))
 
-    # ============================================================
-    # 内插变量，如 "你好，{player}"
-    # ============================================================
+    # --------------------------------------------------
     def interpolate(self, text: str) -> str:
-        def replace_var(match):
-            var_name = match.group(1)
-            return str(self.ctx.get(var_name, f"{{{var_name}}}"))
-        return re.sub(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", replace_var, text)
+        def repl(match):
+            var = match.group(1)
+            return str(self.ctx.get(var, f"{{{var}}}"))
+        return re.sub(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", repl, text)

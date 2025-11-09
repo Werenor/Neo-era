@@ -1,19 +1,57 @@
-测试开始
+NSL 综合测试开始1
+echo "加载背景：港区"
+
+# 切换背景 + 播放 BGM
+bg assets/bg/port.jpg
+bgm assets/bgm/morning.ogg
+
+set player = "指挥官"
 set mood = "good"
-echo "当前心情：{mood}"
+echo "{player} 站在港区，看着清晨的海面。"
 
-if mood == "good"
-    爱宕：今天的心情真不错~
-else
-    爱宕：哼，别打扰我。
-end
-
-choice "去散步" "继续工作"
+echo "爱宕：早安，{player}，今天感觉怎么样？"
+choice "很好" "一般" "有点困"
 
 if choice == 0
-    echo "你选择了：去散步"
+    set mood = "happy"
+    echo "{player}：状态不错。"
 else
-    echo "你选择了：继续工作"
+    set mood = "tired"
+    echo "{player}：还行吧。"
 end
 
-echo "测试结束"
+# 切换背景与音乐
+bg assets/bg/room.jpg
+bgm assets/bgm/calm.ogg
+echo "切换到办公室。"
+
+show_sprite assets/sprite/atago.png left
+show_sprite assets/sprite/takao.png right
+echo "高雄：爱宕姐，你又在和指挥官聊天吗？"
+
+if mood == "happy"
+    echo "爱宕：只是普通问候哦~"
+else
+    echo "爱宕：只是提醒他早点休息。"
+end
+
+echo "选择谁来汇报任务。"
+choice "爱宕" "高雄"
+
+if choice == 0
+    echo "爱宕：指挥官，关于明天的训练计划……"
+else
+    echo "高雄：请您确认一下港区的巡逻安排。"
+end
+
+hide_sprite assets/sprite/takao.png
+echo "高雄退出场景。"
+
+# 夜晚背景与音乐
+bg assets/bg/night.jpg
+bgm assets/bgm/night.ogg
+echo "夜幕降临。{player} 独自留在办公室。"
+
+echo "这一天的工作结束了。"
+stop_bgm
+echo "NSL 综合测试结束"
