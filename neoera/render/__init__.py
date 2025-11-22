@@ -4,4 +4,5 @@ Renderer subsystem for Neo-era:
 - sprite manager
 - transition effects
 - UI components
+
 """

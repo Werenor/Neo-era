@@ -1,4 +1,6 @@
 class ASTNode:
-    def __init__(self, ntype, **kwargs):
-        self.type = ntype
-        self.__dict__.update(kwargs)
+    """
+    Neo-era v0.4.2 AST 基类
+    所有语法节点都继承此基类。
+    """
+    pass

@@ -1,70 +1,102 @@
 import pygame
+from neoera.render.animation.animation_queue import AnimationQueue
+from neoera.render.animation.animation import Animation
+from neoera.render.animation.tween import Tween
 from neoera.core.resource_manager import RESOURCE_MANAGER
 
 
-class SpriteManager:
-    """
-    管理立绘：
-    - 支持任意数量
-    - 每个立绘有：pos / alpha / scale
-    """
+class SpriteObject:
+    def __init__(self, name, x=0, y=0):
+        self.name = name
+        self.surface = RESOURCE_MANAGER.load_image(name)
+        self.x = x
+        self.y = y
+        self.scale = 1.0
+        self.alpha = 255
+        self.animations = AnimationQueue()
 
-    def __init__(self, screen_width, screen_height):
-        self.sprites = {}  # key=path, value=dict(...)
-        self.w = screen_width
-        self.h = screen_height
-
-    def show_sprite(self, path, pos="center", alpha=255, scale=1.0):
-        img = RESOURCE_MANAGER.load_image(path)
-        if img is None:
-            print(f"[SpriteManager] Cannot load {path}")
+    def draw(self, screen):
+        if not self.surface:
             return
 
-        w = img.get_width() * scale
-        h = img.get_height() * scale
-        img = pygame.transform.smoothscale(img, (int(w), int(h)))
+        surf = self.surface.copy()
+        surf.set_alpha(int(self.alpha))
 
-        if pos == "left":
-            x = self.w * 0.15
-        elif pos == "right":
-            x = self.w * 0.85 - w
-        else:
-            x = (self.w - w) // 2
+        if self.scale != 1.0:
+            w, h = surf.get_size()
+            surf = pygame.transform.scale(
+                surf,
+                (int(w * self.scale), int(h * self.scale))
+            )
 
-        y = self.h - h - 50
+        screen.blit(surf, (self.x, self.y))
 
-        self.sprites[path] = {
-            "img": img,
-            "x": x,
-            "y": y,
-            "alpha": alpha,
-            "target_alpha": alpha,
-            "path": path,
-        }
 
-        img.set_alpha(alpha)
+class SpriteManager:
+    def __init__(self):
+        self.sprites = {}
 
-    def hide_sprite(self, path):
-        if path in self.sprites:
-            del self.sprites[path]
+    # -----------------------------------------------------
+    # Basic show/hide
+    # -----------------------------------------------------
+    def show(self, name, x, y):
+        self.sprites[name] = SpriteObject(name, x, y)
 
+    def hide(self, name):
+        if name in self.sprites:
+            del self.sprites[name]
+
+    # -----------------------------------------------------
+    # Animations
+    # -----------------------------------------------------
+    def move(self, name, x, y, duration):
+        if name not in self.sprites:
+            return
+        sp = self.sprites[name]
+
+        tw_x = Tween(sp, "x", sp.x, x, duration)
+        tw_y = Tween(sp, "y", sp.y, y, duration)
+        anim = Animation([tw_x, tw_y])
+        sp.animations.push(anim)
+
+    def fade_in(self, name, duration):
+        if name not in self.sprites:
+            return
+        sp = self.sprites[name]
+        sp.alpha = 0
+        tw = Tween(sp, "alpha", 0, 255, duration)
+        anim = Animation([tw])
+        sp.animations.push(anim)
+
+    def fade_out(self, name, duration):
+        if name not in self.sprites:
+            return
+        sp = self.sprites[name]
+        tw = Tween(sp, "alpha", sp.alpha, 0, duration)
+        anim = Animation([tw])
+        sp.animations.push(anim)
+
+    def scale(self, name, scale, duration):
+        if name not in self.sprites:
+            return
+        sp = self.sprites[name]
+        tw = Tween(sp, "scale", sp.scale, scale, duration)
+        anim = Animation([tw])
+        sp.animations.push(anim)
+
+    # -----------------------------------------------------
+    # Update + Draw
+    # -----------------------------------------------------
     def update(self, dt):
-        # alpha 过渡（简单版）
         for sp in self.sprites.values():
-            current = sp["alpha"]
-            target = sp["target_alpha"]
-            if current != target:
-                if current < target:
-                    current += dt * 255 / 0.3
-                    if current > target:
-                        current = target
-                else:
-                    current -= dt * 255 / 0.3
-                    if current < target:
-                        current = target
-                sp["alpha"] = int(current)
-                sp["img"].set_alpha(sp["alpha"])
+            sp.animations.update(dt)
 
     def draw(self, screen):
         for sp in self.sprites.values():
-            screen.blit(sp["img"], (sp["x"], sp["y"]))
+            sp.draw(screen)
+
+    # -----------------------------------------------------
+    # Animation state check (for WAIT_ANIMATION)
+    # -----------------------------------------------------
+    def animating(self):
+        return any(sp.animations.active() for sp in self.sprites.values())

@@ -6,3 +6,4 @@ UI subsystem:
 - settings menu
 - UI manager
 """
+from .manager.ui_manager import UIManager

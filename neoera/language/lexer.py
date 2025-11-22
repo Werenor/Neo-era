@@ -2,33 +2,46 @@ import re
 
 
 class Lexer:
-    def __init__(self):
-        self.tokens = []
+    """
+    行级脚本 lexer：
+    输入：脚本的一行
+    输出：(cmd, args[])
+    """
 
-    def lex(self, text):
-        text = text.replace("\r\n", "\n")
-        lines = text.split("\n")
-        tokens = []
+    COMMANDS = {
+        "echo", "set", "if", "elseif", "else", "endif",
+        "choice",
+        "bg", "bgm", "stop_bgm",
+        "sprite_show", "sprite_hide",
+        "show_sprite", "hide_sprite",
+        "delay", "wait",
+        "input", "font",
+    }
 
-        for line_no, raw_line in enumerate(lines, 1):
-            line = raw_line.strip()
-            if not line:
-                continue
+    def tokenize_line(self, line):
+        """
+        将一行脚本拆成：“命令 + 参数 tokens”
+        返回格式：
+            ("cmd", ["arg1", "arg2", ...])
+        or
+            ("text", [text])
+        """
 
-            if line.startswith("#"):
-                continue
+        s = line.strip()
+        if not s:
+            return None
 
-            # 指令类
-            if line.startswith(("if ", "elif ", "else", "fi",
-                                "while ", "wend",
-                                "set ", "echo ", "bg ", "bgm ", "stop_bgm",
-                                "choice ", "sprite_show ", "sprite_hide ",
-                                "scene ", "goto ", "return")):
-                tokens.append(("CMD", line, line_no))
-                continue
+        if s.startswith("#"):
+            return None
 
-            # 其他全部视作纯文本
-            tokens.append(("TEXT", line, line_no))
+        # TEXT（隐式 echo）
+        if not any(s.lower().startswith(c + " ") for c in self.COMMANDS) and \
+           not s.lower().split(" ")[0] in self.COMMANDS:
+            # TEXT 行 → 转为 text 命令
+            return "text", [s]
 
-        self.tokens = tokens
-        return tokens
+        parts = s.split()
+        cmd = parts[0].lower()
+        args = parts[1:]
+
+        return cmd, args

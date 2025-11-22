@@ -1,100 +1,64 @@
-# neoera/language/expr_lexer.py
-
 import re
 
 
 class ExprToken:
-    def __init__(self, type_, value, pos):
-        self.type = type_
+    def __init__(self, kind, value):
+        self.kind = kind
         self.value = value
-        self.pos = pos
 
     def __repr__(self):
-        return f"ExprToken({self.type}, {self.value})"
+        return f"ExprToken({self.kind}, {self.value})"
 
 
 class ExprLexer:
-    """
-    NSL 表达式词法分析器（Tokenizer）
-    支持：
-    - 数字：123, 1.5
-    - 字符串："abc" 'abc'
-    - 标识符：变量、函数（支持中文）
-    - 操作符：== != >= <= && || + - * / ! in not
-    - 括号：() []
-    - 逗号
-    """
-
-    # 操作符优先级决定解析顺序
-    OPERATORS = {
-        "==", "!=", ">=", "<=", ">", "<",
-        "+", "-", "*", "/", "!", "&&", "||",
-    }
-
-    KEYWORDS = {"true", "false", "not", "and", "or", "in"}
+    KEYWORDS = {"and", "or", "not", "in"}
 
     TOKEN_REGEX = re.compile(
         r"""
-        (?P<SPACE>\s+)                               | 
+        (?P<SPACE>\s+)                               |
         (?P<NUMBER>\d+(\.\d+)?)                       |
         (?P<STRING>"[^"]*"|'[^']*')                   |
-        (?P<OPERATOR>==|!=|>=|<=|\|\||&&|[+\-*/!<>])  |
-        (?P<COMMA>,)                                  |
+        (?P<OP>==|!=|>=|<=|[+\-*/<>])                 |
+        (?P<EQUAL>=)                                  |
         (?P<LBRACK>\[)                                |
         (?P<RBRACK>\])                                |
         (?P<LPAREN>\()                                |
         (?P<RPAREN>\))                                |
-        (?P<WORD>[\w\u4e00-\u9fa5]+)                  # 支持中文变量名
+        (?P<COMMA>,)                                  |
+        (?P<COLON>:)                                  |
+        (?P<WORD>[\w\u4e00-\u9fa5]+)
         """,
         re.VERBOSE
     )
 
-    def tokenize(self, text):
+    def tokenize_expr(self, text):
         tokens = []
         pos = 0
-        length = len(text)
 
-        while pos < length:
-            match = self.TOKEN_REGEX.match(text, pos)
-            if not match:
-                raise SyntaxError(f"[ExprLexer] 无法解析的字符: {text[pos]} at {pos}")
+        while pos < len(text):
+            m = self.TOKEN_REGEX.match(text, pos)
+            if not m:
+                raise SyntaxError(f"Unrecognized char: {text[pos]} at {pos}")
 
-            kind = match.lastgroup
-            value = match.group(kind)
-            pos = match.end()
+            kind = m.lastgroup
+            value = m.group(kind)
+            pos = m.end()
 
             if kind == "SPACE":
                 continue
 
-            elif kind == "NUMBER":
-                tokens.append(ExprToken("NUMBER", float(value) if "." in value else int(value), pos))
-
+            if kind == "NUMBER":
+                value = float(value) if "." in value else int(value)
+                tokens.append(ExprToken("NUMBER", value))
             elif kind == "STRING":
-                tokens.append(ExprToken("STRING", value[1:-1], pos))
-
+                tokens.append(ExprToken("STRING", value[1:-1]))
             elif kind == "WORD":
-                lower = value.lower()
-                if lower in self.KEYWORDS:
-                    tokens.append(ExprToken("KEYWORD", lower, pos))
+                v2 = value.lower()
+                if v2 in self.KEYWORDS:
+                    tokens.append(ExprToken("KEYWORD", v2))
                 else:
-                    tokens.append(ExprToken("IDENT", value, pos))
-
-            elif kind == "OPERATOR":
-                tokens.append(ExprToken("OP", value, pos))
-
-            elif kind == "COMMA":
-                tokens.append(ExprToken("COMMA", value, pos))
-
-            elif kind == "LBRACK":
-                tokens.append(ExprToken("LBRACK", value, pos))
-
-            elif kind == "RBRACK":
-                tokens.append(ExprToken("RBRACK", value, pos))
-
-            elif kind == "LPAREN":
-                tokens.append(ExprToken("LPAREN", value, pos))
-
-            elif kind == "RPAREN":
-                tokens.append(ExprToken("RPAREN", value, pos))
+                    tokens.append(ExprToken("IDENT", value))
+            else:
+                tokens.append(ExprToken(kind, value))
 
         return tokens

@@ -1,18 +1,13 @@
-class Var:
-    def __init__(self, value):
-        self.value = value
+class Variables:
+    def __init__(self):
+        self.data = {}
 
-    def as_bool(self):
-        if isinstance(self.value, bool):
-            return self.value
-        if isinstance(self.value, (int, float)):
-            return self.value != 0
-        if isinstance(self.value, str):
-            return len(self.value) > 0
-        return bool(self.value)
+    def set(self, key, value):
+        self.data[key] = value
+        print(f"[Variables] {key} = {value}")
 
-    def get(self):
-        return self.value
+    def get(self, key):
+        return self.data.get(key, None)
 
-    def set(self, v):
-        self.value = v
+    def all(self):
+        return dict(self.data)

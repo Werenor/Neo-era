@@ -2,6 +2,7 @@
 简单事件总线，用于引擎内部模块互相通信。
 """
 
+
 class EventBus:
     def __init__(self):
         self.subscribers = {}

@@ -1,88 +1,193 @@
-# neoera/language/interpreter.py
-
 from neoera.language.expr_eval import ExprEvaluator
-from neoera.language.commands import COMMANDS
+from neoera.language.commands import *
 
 
 class Interpreter:
-    def __init__(self, context, renderer):
-        self.ctx = context
+    """
+    Neo-era v0.4.2 解释器
+    将 AST 节点转换为执行器使用的 (result, payload)
+    """
+    def __init__(self, script_ast, ctx, renderer):
+        self.program = script_ast
+        self.ctx = ctx
         self.renderer = renderer
-        self.eval = ExprEvaluator(context)
+        self.eval = ExprEvaluator(ctx)
+        self.pc = 0
 
-    def execute(self, ast):
-        for stmt in ast:
-            self.execute_statement(stmt)
+    # ------------------------------------------------
+    # Public API
+    # ------------------------------------------------
+    def has_next(self):
+        return self.pc < len(self.program)
 
-    def execute_statement(self, s):
-        t = s["type"]
+    def exec_stmt(self):
+        if not self.has_next():
+            return ("END", None)
 
-        # --------------------------
+        stmt = self.program[self.pc]
+        self.pc += 1
+
+        # ============================================================
         # echo
-        # --------------------------
-        if t == "echo":
-            text = self.eval.eval(s["expr"])
-            self.renderer.echo(text)
-            return
+        # ============================================================
+        if isinstance(stmt, EchoNode):
+            return ("ECHO", stmt.text)
 
-        # --------------------------
-        # set
-        # --------------------------
-        if t == "set":
-            v = self.eval.eval(s["expr"])
-            self.ctx.set(s["name"], v)
-            return
+        # ============================================================
+        # assignment
+        # ============================================================
+        if isinstance(stmt, AssignmentNode):
+            val = self.eval.eval(stmt.expr)
+            self.ctx.variables.set(stmt.name, val)
+            return (None, None)
 
-        # --------------------------
-        # choice
-        # --------------------------
-        if t == "choice":
-            idx = self.renderer.print_choice(s["options"])
-            self.ctx.set("choice", idx)
-            return
-
-        # --------------------------
+        # ============================================================
         # if
-        # --------------------------
-        if t == "if":
-            if self.eval.eval(s["condition"]):
-                for sub in s["then"]:
-                    self.execute_statement(sub)
+        # ============================================================
+        if isinstance(stmt, IfNode):
+            cond = self.eval.eval(stmt.condition)
+            if cond:
+                block = stmt.true_block
             else:
-                handled = False
-                if "elseif" in s:
-                    for e in s["elseif"]:
-                        if self.eval.eval(e["condition"]):
-                            for sub in e["then"]:
-                                self.execute_statement(sub)
-                            handled = True
-                            break
-                if not handled and "else" in s and s["else"]:
-                    for sub in s["else"]:
-                        self.execute_statement(sub)
-            return
+                block = stmt.false_block or []
+            # inline execution of block
+            self.program[self.pc:self.pc] = block
+            return (None, None)
 
-        # --------------------------
-        # simple commands
-        # --------------------------
-        if t == "bg":
-            self.renderer.load_background(s["path"])
-            return
+        # ============================================================
+        # while
+        # ============================================================
+        if isinstance(stmt, WhileNode):
+            cond = self.eval.eval(stmt.condition)
+            if cond:
+                block = stmt.body
+                # re-insert while + its block
+                self.program[self.pc:self.pc] = block + [stmt]
+            return (None, None)
 
-        if t == "bgm":
-            self.renderer.play_bgm(s["path"])
-            return
+        # ============================================================
+        # choice
+        # ============================================================
+        if isinstance(stmt, ChoiceNode):
+            return ("CHOICE", stmt.items)
 
-        if t == "stop_bgm":
-            self.renderer.stop_bgm()
-            return
+        # ============================================================
+        # input
+        # ============================================================
+        if isinstance(stmt, InputNode):
+            return ("INPUT", {
+                "var": stmt.var_name,
+                "prompt": stmt.prompt
+            })
 
-        if t == "sprite_show":
-            self.renderer.show_sprite(s["path"], s["pos"])
-            return
+        # ============================================================
+        # delay
+        # ============================================================
+        if isinstance(stmt, DelayNode):
+            seconds = self.eval.eval(stmt.seconds)
+            return ("DELAY", seconds)
 
-        if t == "sprite_hide":
-            self.renderer.hide_sprite(s["path"])
-            return
+        # ============================================================
+        # end
+        # ============================================================
+        if isinstance(stmt, EndNode):
+            return ("END", None)
 
-        print(f"[WARN] 未知语句类型: {t}")
+        # ============================================================
+        # background
+        # ============================================================
+        if isinstance(stmt, BackgroundNode):
+            return ("RENDER", {
+                "type": "BG",
+                "name": stmt.name
+            })
+
+        # ============================================================
+        # sprite_show / sprite_hide
+        # ============================================================
+        if isinstance(stmt, SpriteShowNode):
+            x = self.eval.eval(stmt.x) if stmt.x is not None else 0
+            y = self.eval.eval(stmt.y) if stmt.y is not None else 0
+            return ("RENDER", {
+                "type": "SPRITE_SHOW",
+                "name": stmt.name,
+                "x": x,
+                "y": y
+            })
+
+        if isinstance(stmt, SpriteHideNode):
+            return ("RENDER", {
+                "type": "SPRITE_HIDE",
+                "name": stmt.name
+            })
+
+        # ============================================================
+        # BGM
+        # ============================================================
+        if isinstance(stmt, BGMPlayNode):
+            return ("RENDER", {
+                "type": "BGM_PLAY",
+                "name": stmt.name
+            })
+
+        if isinstance(stmt, BGMStopNode):
+            return ("RENDER", {
+                "type": "BGM_STOP"
+            })
+
+        # ============================================================
+        # UI
+        # ============================================================
+        if isinstance(stmt, UIScreenShowNode):
+            return ("UI_SHOW", stmt.screen_name)
+
+        if isinstance(stmt, UIScreenHideNode):
+            return ("UI_HIDE", None)
+
+        # ============================================================
+        # NEW Animation Commands (v0.4.2)
+        # ============================================================
+
+        # sprite_move
+        if isinstance(stmt, SpriteMoveNode):
+            return ("RENDER", {
+                "type": "SPRITE_MOVE",
+                "name": stmt.name,
+                "x": self.eval.eval(stmt.x),
+                "y": self.eval.eval(stmt.y),
+                "duration": self.eval.eval(stmt.duration),
+                "wait_animation": True
+            })
+
+        # sprite_fadein
+        if isinstance(stmt, SpriteFadeInNode):
+            return ("RENDER", {
+                "type": "SPRITE_FADE_IN",
+                "name": stmt.name,
+                "duration": self.eval.eval(stmt.duration),
+                "wait_animation": True
+            })
+
+        # sprite_fadeout
+        if isinstance(stmt, SpriteFadeOutNode):
+            return ("RENDER", {
+                "type": "SPRITE_FADE_OUT",
+                "name": stmt.name,
+                "duration": self.eval.eval(stmt.duration),
+                "wait_animation": True
+            })
+
+        # sprite_scale
+        if isinstance(stmt, SpriteScaleNode):
+            return ("RENDER", {
+                "type": "SPRITE_SCALE",
+                "name": stmt.name,
+                "scale": self.eval.eval(stmt.scale),
+                "duration": self.eval.eval(stmt.duration),
+                "wait_animation": True
+            })
+
+        # ============================================================
+        # fallback: echo
+        # ============================================================
+        return ("ECHO", str(stmt))

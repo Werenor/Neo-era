@@ -1,102 +1,60 @@
-# neoera/language/expr_eval.py
-
 from neoera.language.builtins import BUILTINS
 
 
 class ExprEvaluator:
-    def __init__(self, context):
-        self.ctx = context
+    def __init__(self, ctx):
+        self.ctx = ctx
 
-    # --------------------------
-    # Main API
-    # --------------------------
     def eval(self, node):
         t = node["type"]
 
-        if t == "number":
-            return node["value"]
-        if t == "string":
-            return node["value"]
-        if t == "var":
-            return self.ctx.get(node["name"])
-        if t == "list":
-            return [self.eval(i) for i in node["items"]]
+        if t == "number": return node["value"]
+        if t == "string": return node["value"]
+        if t == "list": return [self.eval(x) for x in node["items"]]
+        if t == "var": return self.ctx.get(node["name"])
 
         if t == "unary":
-            return self.eval_unary(node)
+            v = self.eval(node["rhs"])
+            if node["op"] == "-": return -float(v)
+            if node["op"] in ("not", "!"): return not self.to_bool(v)
+
+        if node["type"] == "list":
+            return [self.eval(item) for item in node["items"]]
 
         if t == "binary":
-            return self.eval_binary(node)
+            l = self.eval(node["left"])
+            r = self.eval(node["right"])
+            return self.eval_binary(node["op"], l, r)
 
         if t == "call":
-            return self.eval_call(node)
+            func_name = node["func"]["name"]
+            args = [self.eval(a) for a in node["args"]]
+            if func_name not in BUILTINS:
+                raise RuntimeError(f"Unknown builtin: {func_name}")
+            return BUILTINS[func_name](*args)
 
-        raise RuntimeError(f"Unknown expr type: {t}")
+        raise RuntimeError(f"Unknown expr node: {t}")
 
-    # --------------------------
-    # Unary
-    # --------------------------
-    def eval_unary(self, node):
-        op = node["op"]
-        v = self.eval(node["rhs"])
-
-        if op in ("-",):
-            return -float(v)
-        if op in ("not", "!"):
-            return not self.to_bool(v)
-
-        raise RuntimeError(f"Unknown unary op: {op}")
-
-    # --------------------------
-    # Binary
-    # --------------------------
-    def eval_binary(self, node):
-        op = node["op"]
-        l = self.eval(node["left"])
-        r = self.eval(node["right"])
-
-        # arithmetic
+    def eval_binary(self, op, l, r):
         if op == "+": return l + r
         if op == "-": return l - r
         if op == "*": return l * r
         if op == "/": return l / r
 
-        # comparisons
         if op == "==": return l == r
         if op == "!=": return l != r
         if op == "<": return l < r
-        if op == "<=": return l <= r
         if op == ">": return l > r
+        if op == "<=": return l <= r
         if op == ">=": return l >= r
 
-        # logic
         if op == "and": return self.to_bool(l) and self.to_bool(r)
-        if op == "or": return self.to_bool(l) or self.to_bool(r)
+        if op == "or":  return self.to_bool(l) or self.to_bool(r)
 
-        # in
         if op == "in": return l in r
-        if op == "not in": return l not in r
+        raise RuntimeError(f"Unknown op: {op}")
 
-        raise RuntimeError(f"Unknown binary op: {op}")
-
-    # --------------------------
-    # Function call
-    # --------------------------
-    def eval_call(self, node):
-        func_name = node["func"]["name"]
-        args = [self.eval(a) for a in node["args"]]
-
-        if func_name not in BUILTINS:
-            raise RuntimeError(f"Unknown function: {func_name}")
-
-        return BUILTINS[func_name](*args)
-
-    # --------------------------
-    # Helper
-    # --------------------------
     def to_bool(self, v):
-        if isinstance(v, str):
-            return v != ""
-        if isinstance(v, (int, float)):
-            return v != 0
+        if isinstance(v, str): return v != ""
+        if isinstance(v, (int, float)): return v != 0
         return bool(v)

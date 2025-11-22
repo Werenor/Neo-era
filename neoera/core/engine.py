@@ -1,39 +1,64 @@
 import pygame
-from neoera.runtime.executor import Executor
-from neoera.language.interpreter import Interpreter
+from neoera.core.game_loop import GameLoop
+from neoera.core.resource_manager import RESOURCE_MANAGER
 from neoera.core.config import CONFIG
-from neoera.render import renderer_gui
+
+from neoera.runtime.context import Context
+from neoera.runtime.executor import Executor
+from neoera.language.parser import Parser
+from neoera.language.interpreter import Interpreter
+from neoera.render.renderer import Renderer
+from neoera.ui.manager.ui_manager import UIManager
 
 
 class Engine:
+    """
+    Neo-era v2.0 Engine
+    负责：
+    - 初始化所有系统
+    - 加载脚本
+    - 创建 Renderer / Interpreter / Executor
+    - 启动 GameLoop（主循环）
+    """
+
     def __init__(self, script_path):
+        pygame.init()
+
         self.script_path = script_path
+        self.screen = pygame.display.set_mode(CONFIG.RESOLUTION)
+        pygame.display.set_caption("Neo-era Engine v2.0")
 
-        # 初始化 Interpreter（解释 AST）
-        self.interpreter = Interpreter()
+        # ---- Context ----
+        self.context = Context()
 
-        # 初始化 Executor（运行时推进剧情）
-        self.executor = Executor(self.interpreter, script_path)
+        # ---- Renderer ----
+        self.renderer = Renderer(self.screen)
 
-        # Renderer
-        self.renderer = renderer_gui
+        # ---- UI Manager ----
+        self.ui_manager = UIManager(self.renderer)
 
-        self.ui_manager = None
-        self.in_game = False
+        # ---- Parser + AST ----
+        parser = Parser()
+        try:
+            self.ast = parser.parse_file(script_path)
+        except Exception as e:
+            print("[Engine] Script parsing failed:", e)
+            raise
 
-    def bind_ui(self, ui_manager):
-        self.ui_manager = ui_manager
+        # ---- Interpreter ----
+        self.interpreter = Interpreter(self.context, self.renderer)
 
-    def start_gameplay(self):
-        print("[Engine] 开始游戏……")
-        self.in_game = True
-        self.executor.prepare()
+        # ---- Executor ----
+        self.executor = Executor(self.interpreter, self.renderer, self.ast)
 
-    def handle_input(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # 左键点击推进剧情
-            self.executor.on_click()
+        # ---- Game Loop ----
+        self.loop = GameLoop(
+            screen=self.screen,
+            renderer=self.renderer,
+            executor=self.executor,
+            ui_manager=self.ui_manager
+        )
 
-    def update(self, dt):
-        if self.in_game and not self.ui_manager.pause_menu.visible:
-            self.executor.update(dt)
+    def start(self):
+        print("[Engine] Starting game…")
+        self.loop.run()
